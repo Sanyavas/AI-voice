@@ -131,6 +131,58 @@ curl -v https://voice.air2.top/outbound-call \
 ```
 → JSON із `success: true` або детальною помилкою.
 
+---
+
+## 8. Оновлення проекту на сервері
+
+Після внесення змін в репозиторій оновити продакшн-сервер можна за кілька простих кроків:
+
+### 1. Заходите на сервер і переходите в папку проекту
+```bash
+ssh youruser@your_server_ip
+cd /var/www/elevenlabs-twilio-ai-caller
+```
+
+### 2. Витягуєте останні коміти з Git
+```bash
+git fetch origin
+git reset --hard origin/main
+```
+або, якщо хочете зберегти локальні правки:
+```bash
+git pull --rebase origin main
+```
+
+### 3. Встановлюєте (оновлюєте) залежності
+Якщо ви змінювали чи додавали пакети у `package.json`:
+```bash
+npm install
+```
+Іноді корисно очистити кеш і перевстановити:
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### 4. Перезапускаєте процес через PM2
+```bash
+pm2 restart ai-caller
+```
+Якщо ви змінили назву скрипта чи конфіг:
+```bash
+pm2 delete ai-caller
+pm2 start index.js --name ai-caller
+pm2 save
+```
+
+### 5. Перевіряєте статус і логи
+```bash
+pm2 status
+pm2 logs ai-caller --lines 50
+```
+
+Після цих дій на сервері буде запущена остання версія вашого коду.
+
 
 # Connect Elevenlabs Conversation AI Agent to Twilio for Inbound and Outbound Calls
 
