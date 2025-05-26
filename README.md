@@ -1,4 +1,139 @@
+# Deployment Guide for `elevenlabs-twilio-ai-caller`
+
+Сервер налаштовано для роботи Node.js-додатків із веб-інтерфейсом і HTTPS.  
+
+**Встановлено:**
+- **Node.js 18 + npm** — для запуску вашого JavaScript-коду  
+- **Nginx** — як зворотний проксі для маршрутизації HTTP/HTTPS трафіку  
+- **Certbot** — для безкоштовного SSL (Let's Encrypt)  
+- **Git** — для клонування репозиторію  
+- **curl**, **wget** — для швидкого завантаження скриптів  
+
+---
+
+## 1. Оновлення Node.js до версії 18
+
+```bash
+sudo apt remove -y nodejs libnode-dev libnode72
+sudo apt autoremove -y
+sudo apt clean
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt update
+sudo apt install -y nodejs
+node -v   # має бути v18.x.x
+npm -v
+```
+
+---
+
+## 2. Встановлення та налаштування Nginx + HTTPS
+
+```bash
+sudo apt install -y nginx
+sudo ufw allow 'Nginx Full'
+
+sudo tee /etc/nginx/sites-available/ai-caller.conf > /dev/null << 'EOF'
+server {
+    listen 80;
+    server_name voice.air2.top;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name voice.air2.top;
+
+    ssl_certificate     /etc/letsencrypt/live/voice.air2.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/voice.air2.top/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/ai-caller.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d voice.air2.top
+sudo certbot renew --dry-run
+```
+
+---
+
+## 3. Клонування репозиторію
+
+```bash
+cd /var/www
+git clone https://github.com/Sanyavas/viceAI.git elevenlabs-twilio-ai-caller
+cd elevenlabs-twilio-ai-caller
+```
+
+---
+
+## 4. Налаштування змінних оточення
+
+```bash
+cat > .env << 'EOF'
+PORT=8000
+TWILIO_ACCOUNT_SID=ACXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
+ELEVENLABS_API_KEY=your_elevenlabs_key
+ELEVENLABS_AGENT_ID=your_agent_id
+EOF
+```
+
+---
+
+## 5. Встановлення залежностей
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+---
+
+## 6. Запуск у продакшн через PM2
+
+```bash
+sudo npm install -g pm2
+pm2 start index.js --name ai-caller
+pm2 save
+pm2 startup
+pm2 status
+pm2 logs ai-caller
+```
+
+---
+
+## 7. Тестування API
+
+### Health-check:
+```bash
+curl -Ik https://voice.air2.top/
+```
+→ `HTTP/2 200` + `{ "message": "Server is running" }`
+
+### Outbound-call:
+```bash
+curl -v https://voice.air2.top/outbound-call \
+  -H "Content-Type: application/json" \
+  -d '{"number":"+380671234567","prompt":""}'
+```
+→ JSON із `success: true` або детальною помилкою.
+
+
 # Connect Elevenlabs Conversation AI Agent to Twilio for Inbound and Outbound Calls
+
 
 ![CleanShot 2024-12-11 at 22 52 50 1](https://github.com/user-attachments/assets/97108c31-0679-44e5-a7a9-cc7e640dcbf1)
 
@@ -142,5 +277,7 @@ Here are useful resources for setting up and understanding the project:
 Star ⭐ this repository if you find it helpful!
 
 Want to donate? https://bartslodyczka.gumroad.com/l/potvn
+
+
 
 
