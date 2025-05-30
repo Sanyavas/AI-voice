@@ -4,7 +4,7 @@ import Twilio from "twilio";
 export function registerOutboundRoutes(fastify) {
   // Check for required environment variables
   const { 
-    ELEVENLABS_API_KEY, 
+    ELEVENLABS_API_KEY,
     ELEVENLABS_AGENT_ID,
     TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN,
@@ -62,10 +62,12 @@ export function registerOutboundRoutes(fastify) {
         callSid: call.sid
       });
     } catch (error) {
+      // Log full error for debugging
       console.error("Error initiating outbound call:", error);
+      // Return error message in response to help trace issue
       reply.code(500).send({
         success: false,
-        error: "Failed to initiate call"
+        error: error.message || "Failed to initiate call"
       });
     }
   });
