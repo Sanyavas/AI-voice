@@ -62,9 +62,16 @@ export function registerOutboundRoutes(fastify) {
         callSid: call.sid
       });
     } catch (error) {
-      // Log full error for debugging
+      // Handle Twilio geo-permissions error specifically
+      if (error.code === 21408) {
+        console.error("Geographic permissions error:", error);
+        return reply.code(403).send({
+          success: false,
+          error: "Account not authorized to call this destination. Enable permissions at https://www.twilio.com/console/voice/calls/geo-permissions/low-risk"
+        });
+      }
+      // Log other errors and return message
       console.error("Error initiating outbound call:", error);
-      // Return error message in response to help trace issue
       reply.code(500).send({
         success: false,
         error: error.message || "Failed to initiate call"
@@ -93,10 +100,8 @@ export function registerOutboundRoutes(fastify) {
       let callSid = null;
       let elevenLabsWs = null;
 
-      // Handle WebSocket errors
       ws.on('error', console.error);
 
-      // Set up ElevenLabs connection
       const setupElevenLabs = async () => {
         const signedUrl = await getSignedUrl();
         elevenLabsWs = new WebSocket(signedUrl);
@@ -137,7 +142,6 @@ export function registerOutboundRoutes(fastify) {
 
       setupElevenLabs();
 
-      // Handle messages from Twilio
       ws.on("message", (message) => {
         try {
           const msg = JSON.parse(message);
