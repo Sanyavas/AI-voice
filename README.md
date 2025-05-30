@@ -72,7 +72,7 @@ sudo certbot renew --dry-run
 
 ```bash
 cd /var/www
-git clone https://github.com/Sanyavas/viceAI.git elevenlabs-twilio-ai-caller
+git clone https://github.com/Sanyavas/AI-voice.git elevenlabs-twilio-ai-caller
 cd elevenlabs-twilio-ai-caller
 ```
 
@@ -80,15 +80,15 @@ cd elevenlabs-twilio-ai-caller
 
 ## 4. Налаштування змінних оточення
 
-```bash
-cat > .env << 'EOF'
-PORT=8000
+```bash 
+nano .env
+
 TWILIO_ACCOUNT_SID=ACXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 ELEVENLABS_API_KEY=your_elevenlabs_key
 ELEVENLABS_AGENT_ID=your_agent_id
-EOF
+OUTBOUND_CALL_PASSWORD=........
 ```
 
 ---
@@ -124,10 +124,15 @@ curl -Ik https://voice.air2.top/
 → `HTTP/2 200` + `{ "message": "Server is running" }`
 
 ### Outbound-call:
+
 ```bash
-curl -v https://voice.air2.top/outbound-call \
+curl -X POST https://voice.air2.top/outbound-call \
   -H "Content-Type: application/json" \
-  -d '{"number":"+380671234567","prompt":""}'
+  -d '{
+    "number": "+38....",
+    "password": "......"
+  }'
+
 ```
 → JSON із `success: true` або детальною помилкою.
 
