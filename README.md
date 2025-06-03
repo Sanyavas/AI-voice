@@ -130,7 +130,8 @@ curl -X POST https://voice.air2.top/outbound-call \
   -H "Content-Type: application/json" \
   -d '{
     "number": "+38....",
-    "password": "......"
+    "password": "......",
+    "prompt": ""
   }'
 
 ```
