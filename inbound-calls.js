@@ -1,9 +1,8 @@
 import WebSocket from "ws";
-import fetch from "node-fetch"; // якщо Node.js <18
+import fetch from "node-fetch";
 
 function generateSilenceChunk(durationMs = 100, sampleRate = 16000) {
   const numSamples = Math.floor(sampleRate * (durationMs / 1000));
-  // 16bit mono silence PCM
   return Buffer.alloc(numSamples * 2).toString("base64");
 }
 
@@ -41,7 +40,6 @@ export function registerInboundRoutes(fastify) {
         elevenWs = new WebSocket(signedUrl);
 
         elevenWs.on("open", () => {
-          // 1. Надіслати промпт
           elevenWs.send(JSON.stringify({
             type: "conversation_initiation_client_data",
             conversation_config_override: {
@@ -50,7 +48,6 @@ export function registerInboundRoutes(fastify) {
               }
             }
           }));
-          // 2. Надіслати тишу через 500 мс (достатньо часу, щоб prompt застосувався)
           setTimeout(() => {
             const silenceChunk = generateSilenceChunk();
             elevenWs.send(JSON.stringify({ user_audio_chunk: silenceChunk }));
@@ -96,15 +93,14 @@ export function registerInboundRoutes(fastify) {
           }
         });
 
-        conn.on("close", () => { if (elevenWs) elevenWs.close(); });
-        conn.on("error", (e) => { if (elevenWs) elevenWs.close(); });
-
-        elevenWs.on("error", (e) => { if (conn) conn.socket.close(); });
-        elevenWs.on("close", () => { if (conn) conn.socket.close(); });
+        conn.on("close", () => { try { elevenWs?.close(); } catch {} });
+        conn.on("error", (e) => { try { elevenWs?.close(); } catch {} });
+        elevenWs.on("error", (e) => { try { conn?.socket?.close(); } catch {} });
+        elevenWs.on("close", () => { try { conn?.socket?.close(); } catch {} });
 
       } catch (e) {
-        if (elevenWs) elevenWs.close();
-        conn.socket.close();
+        try { elevenWs?.close(); } catch {}
+        try { conn?.socket?.close(); } catch {}
         console.error("[Server] Error:", e);
       }
     });
