@@ -132,11 +132,12 @@ export function registerOutboundRoutes(fastify) {
                 case "conversation_initiation_metadata":
                   console.log("[ElevenLabs] Received initiation metadata");
                   break;
-                  
+
                 // Якщо агент ElevenLabs викликає tool "end_call", завершуємо дзвінок через Twilio API
                 case "tool_use":
                   console.log("[DEBUG] tool_use message:", message);
                   if (message.tool_name === "end_call" && callSid) {
+                    // Завершити дзвінок через Twilio API по команді агента
                     twilioClient.calls(callSid).update({ status: "completed" })
                       .then(() => console.log("[Twilio] Call ended via end_call tool"))
                       .catch((err) => console.error("[Twilio] Error ending call:", err));
@@ -188,6 +189,12 @@ export function registerOutboundRoutes(fastify) {
 
           elevenLabsWs.on("close", () => {
             console.log("[ElevenLabs] Disconnected");
+            // Якщо WebSocket із ElevenLabs закрився, завершити дзвінок через Twilio API (резервний варіант)
+            if (callSid) {
+              twilioClient.calls(callSid).update({ status: "completed" })
+                .then(() => console.log("[Twilio] Call ended because ElevenLabs disconnected"))
+                .catch((err) => console.error("[Twilio] Error ending call after WS close:", err));
+            }
           });
 
         } catch (error) {
