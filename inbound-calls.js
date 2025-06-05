@@ -18,7 +18,7 @@ export function registerInboundRoutes(fastify) {
       throw new Error(`Failed to get signed URL: ${res.statusText}`);
     }
     const json = await res.json();
-    console.log("[Server] Received signed URL");
+    console.log("[Server] Received signed URL:", json.signed_url);
     return json.signed_url;
   }
 
@@ -42,11 +42,12 @@ export function registerInboundRoutes(fastify) {
 
       try {
         const signedUrl = await getSignedUrl();
+
         console.log("[Server] Connecting to ElevenLabs WS at:", signedUrl);
         elevenWs = new WebSocket(signedUrl);
 
         elevenWs.on("open", () => {
-          console.log("[II] ElevenLabs WS opened");
+          console.log("[II] ElevenLabs WS OPENED");
           const init = {
             type: "conversation_initiation_client_data",
             conversation_config_override: {
@@ -59,40 +60,45 @@ export function registerInboundRoutes(fastify) {
           elevenWs.send(JSON.stringify(init));
         });
 
+        // Додаткове діагностичне логування:
         elevenWs.on("message", (data) => {
-          let msg;
           try {
-            msg = JSON.parse(data);
+            // Відловлюємо raw data для повного дебагу:
+            console.log("[II] ElevenLabs WS RAW message:", data.toString());
+            let msg = JSON.parse(data);
+            console.log("[II] Parsed from ElevenLabs:", msg.type);
+
+            if (msg.type === "audio" && msg.audio_event?.audio_base_64 && streamSid) {
+              console.log("[II] Forwarding audio to Twilio, streamSid:", streamSid);
+              conn.send(
+                JSON.stringify({
+                  event: "media",
+                  streamSid,
+                  media: { payload: msg.audio_event.audio_base_64 }
+                })
+              );
+            }
+            if (msg.type === "interruption" && streamSid) {
+              console.log("[II] Sending clear event to Twilio");
+              conn.send(JSON.stringify({ event: "clear", streamSid }));
+            }
+            if (msg.type === "ping" && msg.ping_event?.event_id) {
+              console.log("[II] Responding to ping:", msg.ping_event.event_id);
+              elevenWs.send(JSON.stringify({ type: "pong", event_id: msg.ping_event.event_id }));
+            }
           } catch (e) {
-            console.error("[II] Error parsing ElevenLabs message:", e);
-            return;
-          }
-          console.log("[II] Received from ElevenLabs:", msg.type);
-          if (msg.type === "audio" && msg.audio_event?.audio_base_64 && streamSid) {
-            console.log("[II] Forwarding audio to Twilio, streamSid:", streamSid);
-            conn.send(
-              JSON.stringify({
-                event: "media",
-                streamSid,
-                media: { payload: msg.audio_event.audio_base_64 }
-              })
-            );
-          }
-          if (msg.type === "interruption" && streamSid) {
-            console.log("[II] Sending clear event to Twilio");
-            conn.send(JSON.stringify({ event: "clear", streamSid }));
-          }
-          if (msg.type === "ping" && msg.ping_event?.event_id) {
-            console.log("[II] Responding to ping:", msg.ping_event.event_id);
-            elevenWs.send(JSON.stringify({ type: "pong", event_id: msg.ping_event.event_id }));
+            console.error("[II] Error parsing ElevenLabs message:", e, data.toString());
           }
         });
 
         elevenWs.on("error", (e) => {
-          console.error("[II] ElevenLabs WS error:", e);
+          console.error("[II] ElevenLabs WS ERROR:", e);
+          if (conn && conn.socket && conn.socket.readyState === 1) {
+            conn.socket.close();
+          }
         });
         elevenWs.on("close", (code, reason) => {
-          console.log(`[II] ElevenLabs WS closed (code: ${code}, reason: ${reason})`);
+          console.log(`[II] ElevenLabs WS CLOSED (code: ${code}, reason: ${reason})`);
         });
 
         conn.on("message", (raw) => {
@@ -100,7 +106,7 @@ export function registerInboundRoutes(fastify) {
           try {
             data = JSON.parse(raw);
           } catch (e) {
-            console.error("[Twilio] Error parsing Twilio message:", e);
+            console.error("[Twilio] Error parsing Twilio message:", e, raw);
             return;
           }
           console.log("[Twilio WS] Received event:", data.event);
@@ -120,15 +126,21 @@ export function registerInboundRoutes(fastify) {
 
         conn.on("close", () => {
           console.log("[Twilio] WS connection closed by client");
-          if (elevenWs) elevenWs.close();
+          if (elevenWs && elevenWs.readyState === WebSocket.OPEN) {
+            elevenWs.close();
+          }
         });
         conn.on("error", (e) => {
           console.error("[Twilio] WS error:", e);
-          if (elevenWs) elevenWs.close();
+          if (elevenWs && elevenWs.readyState === WebSocket.OPEN) {
+            elevenWs.close();
+          }
         });
       } catch (e) {
         console.error("[Server] Initialization error:", e);
-        if (elevenWs) elevenWs.close();
+        if (elevenWs && elevenWs.readyState === WebSocket.OPEN) {
+          elevenWs.close();
+        }
         conn.socket.close();
       }
     });
