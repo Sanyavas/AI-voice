@@ -132,14 +132,16 @@ export function registerOutboundRoutes(fastify) {
                 case "conversation_initiation_metadata":
                   console.log("[ElevenLabs] Received initiation metadata");
                   break;
+                  
                 // Якщо агент ElevenLabs викликає tool "end_call", завершуємо дзвінок через Twilio API
                 case "tool_use":
-                    if (message.tool_name === "end_call" && callSid) {
-                      twilioClient.calls(callSid).update({ status: "completed" })
-                        .then(() => console.log("[Twilio] Call ended via end_call tool"))
-                        .catch((err) => console.error("[Twilio] Error ending call:", err));
-                    }
-                    break;
+                  console.log("[DEBUG] tool_use message:", message);
+                  if (message.tool_name === "end_call" && callSid) {
+                    twilioClient.calls(callSid).update({ status: "completed" })
+                      .then(() => console.log("[Twilio] Call ended via end_call tool"))
+                      .catch((err) => console.error("[Twilio] Error ending call:", err));
+                  }
+                  break;
 
                 case "audio":
                   if (streamSid) {
